@@ -13,6 +13,7 @@ from PyQt6.QtGui import QFont
 from common import is_dark
 from resize import ResizePage
 from compress import CompressPage
+from split import SplitPage
 
 
 class FeatureCard(QFrame):
@@ -119,13 +120,16 @@ class MainWindow(QMainWindow):
 
         self.resize_page   = ResizePage()
         self.compress_page = CompressPage()
+        self.split_page    = SplitPage()
 
         self.resize_page.go_back.connect(lambda: self.stack.setCurrentIndex(0))
         self.compress_page.go_back.connect(lambda: self.stack.setCurrentIndex(0))
+        self.split_page.go_back.connect(lambda: self.stack.setCurrentIndex(0))
 
         self.stack.addWidget(self._build_home())   # 0
         self.stack.addWidget(self.resize_page)     # 1
         self.stack.addWidget(self.compress_page)   # 2
+        self.stack.addWidget(self.split_page)      # 3
 
     def _build_home(self) -> QWidget:
         page = QWidget()
@@ -145,15 +149,18 @@ class MainWindow(QMainWindow):
 
         resize_card   = FeatureCard("⊡", "批量调整图片尺寸", "拖入图片，批量按指定宽度缩放", "#007AFF")
         compress_card = FeatureCard("◈", "图片压缩", "调节质量参数，减小图片文件体积", "#34C759")
+        split_card    = FeatureCard("✂", "长图切割", "将长图沿长边均匀切割成多份短图", "#FF9500")
 
         resize_card.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         compress_card.clicked.connect(lambda: self.stack.setCurrentIndex(2))
+        split_card.clicked.connect(lambda: self.stack.setCurrentIndex(3))
 
         v.addWidget(title)
         v.addWidget(sub)
         v.addSpacing(16)
         v.addWidget(resize_card)
         v.addWidget(compress_card)
+        v.addWidget(split_card)
         v.addStretch(3)
         return page
 
