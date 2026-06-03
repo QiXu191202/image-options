@@ -15,6 +15,7 @@ from PIL import Image
 from common import (
     SUPPORTED_EXTENSIONS, PROCESS_BTN_STYLE,
     DropArea, build_output_group, make_back_header,
+    info_box, warning_box,
 )
 
 
@@ -89,7 +90,7 @@ class ResizePage(QWidget):
         v.setContentsMargins(20, 14, 20, 16)
         v.setSpacing(8)
 
-        v.addWidget(make_back_header("批量调整图片尺寸", self.go_back.emit))
+        v.addWidget(make_back_header("调整图片尺寸", self.go_back.emit))
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
@@ -171,6 +172,7 @@ class ResizePage(QWidget):
 
         self.process_btn = QPushButton("开始处理")
         self.process_btn.setFixedHeight(40)
+        self.process_btn.setEnabled(False)
         self.process_btn.setStyleSheet(
             PROCESS_BTN_STYLE.format(color="#007AFF", hover="#0066DD", pressed="#0055BB")
         )
@@ -205,6 +207,7 @@ class ResizePage(QWidget):
                 item.setToolTip(f)
                 self.file_list.addItem(item)
         self.count_label.setText(f"{len(self.image_files)} 张图片")
+        self.process_btn.setEnabled(bool(self.image_files))
 
     def remove_selected(self):
         rows = sorted(
@@ -215,21 +218,20 @@ class ResizePage(QWidget):
             self.file_list.takeItem(row)
             self.image_files.pop(row)
         self.count_label.setText(f"{len(self.image_files)} 张图片")
+        self.process_btn.setEnabled(bool(self.image_files))
 
     def clear_files(self):
         self.file_list.clear()
         self.image_files.clear()
         self.count_label.setText("0 张图片")
         self.status_label.setText("")
+        self.process_btn.setEnabled(False)
 
     def start_processing(self):
-        if not self.image_files:
-            QMessageBox.warning(self, "提示", "请先添加图片文件")
-            return
         if self.radio_new.isChecked():
             output_dir = self.dir_input.text().strip()
             if not output_dir:
-                QMessageBox.warning(self, "提示", "请先选择输出目录")
+                warning_box(self, "提示", "请先选择输出目录")
                 return
         else:
             output_dir = None
@@ -256,12 +258,12 @@ class ResizePage(QWidget):
         self.worker.start()
 
     def _on_finished(self, success: int, failed: int):
-        self.process_btn.setEnabled(True)
+        self.process_btn.setEnabled(bool(self.image_files))
         self.progress_bar.setVisible(False)
         if failed == 0:
             self.status_label.setText(f"完成 {success} 张 ✓")
-            QMessageBox.information(self, "完成", f"全部完成，共处理 {success} 张图片。")
+            info_box(self, "完成", f"全部完成，共处理 {success} 张图片。")
         else:
             self.status_label.setText(f"完成 {success} 张，失败 {failed} 张")
-            QMessageBox.warning(self, "部分失败",
+            warning_box(self, "部分失败",
                 f"完成 {success} 张，失败 {failed} 张。\n\n" + "\n".join(self.errors))

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame,
-    QLabel, QPushButton, QProgressBar, QMessageBox,
+    QLabel, QPushButton, QProgressBar,
     QGroupBox, QSlider, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView,
 )
@@ -16,6 +16,7 @@ from PIL import Image
 from common import (
     PROCESS_BTN_STYLE, fmt_size,
     DropArea, build_output_group, make_back_header,
+    info_box, warning_box,
 )
 
 
@@ -197,6 +198,7 @@ class CompressPage(QWidget):
 
         self.process_btn = QPushButton("开始压缩")
         self.process_btn.setFixedHeight(40)
+        self.process_btn.setEnabled(False)
         self.process_btn.setStyleSheet(
             PROCESS_BTN_STYLE.format(color="#34C759", hover="#28A745", pressed="#1E8035")
         )
@@ -241,6 +243,7 @@ class CompressPage(QWidget):
                 self.table.setItem(r, 2, self._cell("–"))
                 self.table.setItem(r, 3, self._cell("–"))
         self.count_label.setText(f"{len(self.image_files)} 张图片")
+        self.process_btn.setEnabled(bool(self.image_files))
 
     def remove_selected(self):
         rows = sorted(
@@ -251,21 +254,20 @@ class CompressPage(QWidget):
             self.table.removeRow(row)
             self.image_files.pop(row)
         self.count_label.setText(f"{len(self.image_files)} 张图片")
+        self.process_btn.setEnabled(bool(self.image_files))
 
     def clear_files(self):
         self.table.setRowCount(0)
         self.image_files.clear()
         self.count_label.setText("0 张图片")
         self.status_label.setText("")
+        self.process_btn.setEnabled(False)
 
     def start_processing(self):
-        if not self.image_files:
-            QMessageBox.warning(self, "提示", "请先添加图片文件")
-            return
         if self.radio_new.isChecked():
             output_dir = self.dir_input.text().strip()
             if not output_dir:
-                QMessageBox.warning(self, "提示", "请先选择输出目录")
+                warning_box(self, "提示", "请先选择输出目录")
                 return
         else:
             output_dir = None
@@ -303,12 +305,12 @@ class CompressPage(QWidget):
             self.table.setItem(idx, 3, ratio_item)
 
     def _on_finished(self, success: int, failed: int):
-        self.process_btn.setEnabled(True)
+        self.process_btn.setEnabled(bool(self.image_files))
         self.progress_bar.setVisible(False)
         if failed == 0:
             self.status_label.setText(f"完成 {success} 张 ✓")
-            QMessageBox.information(self, "完成", f"全部完成，共压缩 {success} 张图片。")
+            info_box(self, "完成", f"全部完成，共压缩 {success} 张图片。")
         else:
             self.status_label.setText(f"完成 {success} 张，失败 {failed} 张")
-            QMessageBox.warning(self, "部分失败",
+            warning_box(self, "部分失败",
                 f"完成 {success} 张，失败 {failed} 张。\n\n" + "\n".join(self.errors))

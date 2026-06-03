@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
         sub = QLabel("选择要使用的功能")
         sub.setStyleSheet("color: #888888; font-size: 13px;")
 
-        resize_card   = FeatureCard(str(_STATIC / "resize.svg"),   "批量调整图片尺寸", "拖入图片，批量按指定宽度缩放", "#007AFF")
+        resize_card   = FeatureCard(str(_STATIC / "resize.svg"),   "调整图片尺寸", "拖入图片，批量按指定宽度缩放", "#007AFF")
         compress_card = FeatureCard(str(_STATIC / "compress.svg"), "图片压缩",       "调节质量参数，减小图片文件体积", "#34C759")
         split_card    = FeatureCard(str(_STATIC / "split.svg"),    "长图切割",       "将长图沿长边均匀切割成多份短图", "#FF9500")
 

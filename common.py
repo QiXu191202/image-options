@@ -7,10 +7,54 @@ from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit,
     QGroupBox, QRadioButton, QButtonGroup, QCheckBox,
-    QFileDialog,
+    QFileDialog, QMessageBox,
 )
 from PyQt6.QtCore import Qt, QEvent, pyqtSignal
-from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
+from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent, QIcon
+
+_ICON_PATH = Path(__file__).parent / "static" / "EditImage.svg"
+
+
+def _icon_pixmap(size: int = 64):
+    if _ICON_PATH.exists():
+        return QIcon(str(_ICON_PATH)).pixmap(size, size)
+    return None
+
+
+def info_box(parent: QWidget, title: str, text: str) -> None:
+    msg = QMessageBox(parent)
+    msg.setWindowTitle(title)
+    msg.setText(text)
+    px = _icon_pixmap()
+    if px:
+        msg.setIconPixmap(px)
+    else:
+        msg.setIcon(QMessageBox.Icon.Information)
+    msg.exec()
+
+
+def warning_box(parent: QWidget, title: str, text: str) -> None:
+    msg = QMessageBox(parent)
+    msg.setWindowTitle(title)
+    msg.setText(text)
+    px = _icon_pixmap()
+    if px:
+        msg.setIconPixmap(px)
+    else:
+        msg.setIcon(QMessageBox.Icon.Warning)
+    msg.exec()
+
+
+def critical_box(parent: QWidget, title: str, text: str) -> None:
+    msg = QMessageBox(parent)
+    msg.setWindowTitle(title)
+    msg.setText(text)
+    px = _icon_pixmap()
+    if px:
+        msg.setIconPixmap(px)
+    else:
+        msg.setIcon(QMessageBox.Icon.Critical)
+    msg.exec()
 
 
 SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.tif'}

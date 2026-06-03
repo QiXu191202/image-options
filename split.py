@@ -7,7 +7,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame,
     QLabel, QPushButton, QGroupBox, QSpinBox,
-    QLineEdit, QProgressBar, QMessageBox,
+    QLineEdit, QProgressBar,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PIL import Image
@@ -15,6 +15,7 @@ from PIL import Image
 from common import (
     PROCESS_BTN_STYLE,
     DropArea, make_back_header,
+    info_box, warning_box, critical_box,
 )
 
 
@@ -246,7 +247,7 @@ class SplitPage(QWidget):
             with Image.open(filepath) as img:
                 w, h = img.size
         except Exception as e:
-            QMessageBox.warning(self, "错误", f"无法读取图片：{e}")
+            warning_box(self, "错误", f"无法读取图片：{e}")
             return
 
         self._image_path    = filepath
@@ -298,19 +299,18 @@ class SplitPage(QWidget):
         )
         self.worker.finished.connect(self._on_finished)
         self.worker.log_error.connect(
-            lambda msg: QMessageBox.critical(self, "切割出错", msg)
+            lambda msg: critical_box(self, "切割出错", msg)
         )
         self.worker.start()
 
     def _on_finished(self, saved: int):
-        self.process_btn.setEnabled(True)
+        self.process_btn.setEnabled(bool(self._image_path))
         self.progress_bar.setVisible(False)
         if saved > 0:
             prefix  = self.prefix_input.text().strip() or "split"
             out_dir = str(Path(self._image_path).parent / prefix)
             self.status_label.setText(f"完成，共保存 {saved} 张 ✓")
-            QMessageBox.information(
-                self, "完成",
+            info_box(self, "完成",
                 f"切割完成，共保存 {saved} 张图片。\n\n保存位置：{out_dir}"
             )
         else:
