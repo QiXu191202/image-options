@@ -17,6 +17,7 @@ from resize import ResizePage
 from compress import CompressPage
 from split import SplitPage
 from crop import CropPage
+from pdf_to_image import PdfToImagePage
 
 _STATIC = Path(__file__).parent / "static"
 
@@ -146,21 +147,24 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
 
-        self.resize_page   = ResizePage()
-        self.compress_page = CompressPage()
-        self.split_page    = SplitPage()
-        self.crop_page     = CropPage()
+        self.resize_page     = ResizePage()
+        self.compress_page   = CompressPage()
+        self.split_page      = SplitPage()
+        self.crop_page       = CropPage()
+        self.pdf_to_img_page = PdfToImagePage()
 
         self.resize_page.go_back.connect(lambda: self.stack.setCurrentIndex(0))
         self.compress_page.go_back.connect(lambda: self.stack.setCurrentIndex(0))
         self.split_page.go_back.connect(lambda: self.stack.setCurrentIndex(0))
         self.crop_page.go_back.connect(lambda: self.stack.setCurrentIndex(0))
+        self.pdf_to_img_page.go_back.connect(lambda: self.stack.setCurrentIndex(0))
 
-        self.stack.addWidget(self._build_home())   # 0
-        self.stack.addWidget(self.resize_page)     # 1
-        self.stack.addWidget(self.compress_page)   # 2
-        self.stack.addWidget(self.split_page)      # 3
-        self.stack.addWidget(self.crop_page)       # 4
+        self.stack.addWidget(self._build_home())    # 0
+        self.stack.addWidget(self.resize_page)      # 1
+        self.stack.addWidget(self.compress_page)    # 2
+        self.stack.addWidget(self.split_page)       # 3
+        self.stack.addWidget(self.crop_page)        # 4
+        self.stack.addWidget(self.pdf_to_img_page)  # 5
 
     def _build_home(self) -> QWidget:
         page = QWidget()
@@ -178,15 +182,17 @@ class MainWindow(QMainWindow):
         sub = QLabel("选择要使用的功能")
         sub.setStyleSheet("color: #888888; font-size: 13px;")
 
-        resize_card   = FeatureCard(str(_STATIC / "resize.svg"),   "调整图片尺寸", "拖入图片，批量按指定宽度缩放", "#007AFF")
-        compress_card = FeatureCard(str(_STATIC / "compress.svg"), "图片压缩",       "调节质量参数，减小图片文件体积", "#34C759")
-        split_card    = FeatureCard(str(_STATIC / "split.svg"),    "长图切割",       "将长图沿长边均匀切割成多份短图", "#FF9500")
-        crop_card     = FeatureCard(str(_STATIC / "crop.svg"),     "图片裁剪",       "按比例裁剪图片并自定义输出尺寸", "#AF52DE")
+        resize_card   = FeatureCard(str(_STATIC / "resize.svg"),      "调整图片尺寸", "拖入图片，批量按指定宽度缩放", "#007AFF")
+        compress_card = FeatureCard(str(_STATIC / "compress.svg"),    "图片压缩",     "调节质量参数，减小图片文件体积", "#34C759")
+        split_card    = FeatureCard(str(_STATIC / "split.svg"),       "长图切割",     "将长图沿长边均匀切割成多份短图", "#FF9500")
+        crop_card     = FeatureCard(str(_STATIC / "crop.svg"),        "图片裁剪",     "按比例裁剪图片并自定义输出尺寸", "#AF52DE")
+        pdf_card      = FeatureCard(str(_STATIC / "PdfToImage.svg"),  "PDF 转图片",   "将 PDF 每页转为 JPG 图片", "#FF6B35")
 
         resize_card.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         compress_card.clicked.connect(lambda: self.stack.setCurrentIndex(2))
         split_card.clicked.connect(lambda: self.stack.setCurrentIndex(3))
         crop_card.clicked.connect(lambda: self.stack.setCurrentIndex(4))
+        pdf_card.clicked.connect(lambda: self.stack.setCurrentIndex(5))
 
         row1 = QHBoxLayout()
         row1.setSpacing(12)
@@ -198,11 +204,17 @@ class MainWindow(QMainWindow):
         row2.addWidget(split_card, stretch=1)
         row2.addWidget(crop_card, stretch=1)
 
+        row3 = QHBoxLayout()
+        row3.setSpacing(12)
+        row3.addWidget(pdf_card, stretch=1)
+        row3.addStretch(1)
+
         v.addWidget(title)
         v.addWidget(sub)
         v.addSpacing(16)
         v.addLayout(row1)
         v.addLayout(row2)
+        v.addLayout(row3)
         v.addStretch(3)
         return page
 
