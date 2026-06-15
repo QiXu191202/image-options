@@ -29,6 +29,20 @@ def _n_range(width: int, height: int) -> tuple[int, int]:
     return 2, n_max
 
 
+def _split_ranges(length: int, n: int) -> list[tuple[int, int]]:
+    """Return continuous integer crop ranges covering length exactly once."""
+    ranges: list[tuple[int, int]] = []
+    start = 0
+
+    for i in range(1, n + 1):
+        end = length if i == n else int(round(i * length / n))
+        end = max(start, min(length, end))
+        ranges.append((start, end))
+        start = end
+
+    return ranges
+
+
 class SplitWorker(QThread):
     progress  = pyqtSignal(int, int)  # current piece, total
     finished  = pyqtSignal(int)       # saved count
@@ -48,7 +62,7 @@ class SplitWorker(QThread):
                 w, h      = img.size
                 portrait  = h >= w
                 long_edge = h if portrait else w
-                piece_len = long_edge // self.n
+                ranges    = _split_ranges(long_edge, self.n)
 
                 out_dir = Path(self.output_dir)
                 os.makedirs(out_dir, exist_ok=True)
@@ -56,10 +70,8 @@ class SplitWorker(QThread):
                 ext   = path.suffix.lower()
                 saved = 0
 
-                for i in range(self.n):
+                for i, (start, end) in enumerate(ranges):
                     self.progress.emit(i + 1, self.n)
-                    start = i * piece_len
-                    end   = long_edge if i == self.n - 1 else start + piece_len
 
                     box   = (0, start, w, end) if portrait else (start, 0, end, h)
                     piece = img.crop(box)
