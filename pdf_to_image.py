@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import concurrent.futures
 
 try:
     import fitz  # PyMuPDF (old import style)
@@ -11,7 +12,7 @@ except ModuleNotFoundError:
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame,
     QLabel, QPushButton, QGroupBox, QLineEdit,
-    QProgressBar, QFileDialog,
+    QProgressBar, QFileDialog, QComboBox,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
@@ -23,7 +24,15 @@ from common import (
     is_dark,
 )
 
-TARGET_WIDTH = 1500
+DPI_PRESETS = [
+    ("草图（72 DPI）",    72),
+    ("低（100 DPI）",    100),
+    ("标准（150 DPI）",  150),
+    ("中（200 DPI）",    200),
+    ("高（300 DPI）",    300),
+    ("超高（400 DPI）",  400),
+    ("极清（600 DPI）",  600),
+]
 
 
 class PdfDropArea(QFrame):
@@ -117,40 +126,59 @@ class PdfDropArea(QFrame):
 
 
 class PdfWorker(QThread):
-    progress  = pyqtSignal(int, int)   # current page (1-based), total
+    progress  = pyqtSignal(int, int)   # completed count, total
     finished  = pyqtSignal(int)        # saved count
     log_error = pyqtSignal(str)
 
-    def __init__(self, pdf_path: str, prefix: str, output_dir: str):
+    def __init__(self, pdf_path: str, prefix: str, output_dir: str, dpi: int):
         super().__init__()
         self.pdf_path   = pdf_path
         self.prefix     = prefix
         self.output_dir = output_dir
+        self.dpi        = dpi
 
     def run(self):
         try:
             doc = fitz.open(self.pdf_path)
             total = doc.page_count
+            doc.close()
+
             out_dir = Path(self.output_dir)
             os.makedirs(out_dir, exist_ok=True)
-            saved = 0
 
-            for i in range(total):
-                self.progress.emit(i + 1, total)
-                page = doc[i]
-                # Calculate zoom so rendered width = TARGET_WIDTH
-                natural_w = page.rect.width
-                if natural_w > 0:
-                    zoom = TARGET_WIDTH / natural_w
-                else:
-                    zoom = 1.0
-                mat = fitz.Matrix(zoom, zoom)
-                pix = page.get_pixmap(matrix=mat, alpha=False)
-                out_path = str(out_dir / f"{self.prefix}-{i + 1}.jpg")
-                pix.save(out_path, jpg_quality=92)
-                saved += 1
+            zoom = self.dpi / 72.0
+            results: list[tuple[bool, str | None]] = [None] * total   # type: ignore
 
-            doc.close()
+            max_workers = min(total, os.cpu_count() or 4)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+
+                def render_page(i: int) -> tuple[int, bool, str | None]:
+                    d = fitz.open(self.pdf_path)
+                    try:
+                        page = d[i]
+                        mat = fitz.Matrix(zoom, zoom)
+                        pix = page.get_pixmap(matrix=mat, alpha=False)
+                        out_path = str(out_dir / f"{self.prefix}-{i + 1}.jpg")
+                        pix.save(out_path, jpg_quality=92)
+                        return (i, True, None)
+                    except Exception as e:
+                        return (i, False, str(e))
+                    finally:
+                        d.close()
+
+                futures = {executor.submit(render_page, i): i for i in range(total)}
+                for future in concurrent.futures.as_completed(futures):
+                    i, ok, err = future.result()
+                    results[i] = (ok, err)
+                    done = sum(1 for r in results if r is not None)
+                    self.progress.emit(done, total)
+
+            saved = sum(1 for ok, _ in results if ok)
+            for i, (ok, err) in enumerate(results):
+                if not ok and err:
+                    self.log_error.emit(f"第 {i+1} 页: {err}")
+
             self.finished.emit(saved)
         except Exception as e:
             self.log_error.emit(str(e))
@@ -230,10 +258,19 @@ class PdfToImagePage(QWidget):
         cg = QVBoxLayout(conv_group)
         cg.setSpacing(8)
 
-        width_note = QLabel(f"图片宽度：{TARGET_WIDTH} px（不足时取最大可用宽度）")
-        width_note.setStyleSheet("color: #888; font-size: 11px;")
-        width_note.setWordWrap(True)
-        cg.addWidget(width_note)
+        dpi_row = QHBoxLayout()
+        dpi_row.addWidget(QLabel("分辨率："))
+        self.dpi_combo = QComboBox()
+        self.dpi_combo.addItems([label for label, _ in DPI_PRESETS])
+        self.dpi_combo.setCurrentIndex(1)  # default: 300 DPI
+        dpi_row.addWidget(self.dpi_combo)
+        dpi_row.addStretch()
+        cg.addLayout(dpi_row)
+
+        dpi_note = QLabel("DPI 越高越清晰，但转换越慢、CPU 占用越高")
+        dpi_note.setStyleSheet("color: #888; font-size: 11px;")
+        dpi_note.setWordWrap(True)
+        cg.addWidget(dpi_note)
 
         prefix_row = QHBoxLayout()
         prefix_row.addWidget(QLabel("图片前缀："))
@@ -354,18 +391,20 @@ class PdfToImagePage(QWidget):
 
         prefix     = self.prefix_input.text().strip() or "pdf-to"
         output_dir = self._output_dir()
+        dpi        = DPI_PRESETS[self.dpi_combo.currentIndex()][1]
 
         self.process_btn.setEnabled(False)
+        self.dpi_combo.setEnabled(False)
         self.progress_bar.setMaximum(self._page_count)
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(True)
-        self.status_label.setText("转换中…")
+        self.status_label.setText("已完成: 0 / 0")
 
-        self.worker = PdfWorker(self._pdf_path, prefix, output_dir)
+        self.worker = PdfWorker(self._pdf_path, prefix, output_dir, dpi)
         self.worker.progress.connect(
             lambda c, t: (
                 self.progress_bar.setValue(c),
-                self.status_label.setText(f"{c} / {t}"),
+                self.status_label.setText(f"已完成: {c} / {t}"),
             )
         )
         self.worker.finished.connect(self._on_finished)
@@ -376,6 +415,7 @@ class PdfToImagePage(QWidget):
 
     def _on_finished(self, saved: int):
         self.process_btn.setEnabled(bool(self._pdf_path))
+        self.dpi_combo.setEnabled(True)
         self.progress_bar.setVisible(False)
         if saved > 0:
             out_dir = self._output_dir()
